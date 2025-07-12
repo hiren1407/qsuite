@@ -13,13 +13,15 @@ import {
 
 const Header = () => {
   const navigate = useNavigate();
-  const [userEmail, setUserEmail] = useState(null);
+  const [userName, setUserName] = useState(null);
 
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        setUserEmail(user.email);
+        // Try to get display name from user metadata, fallback to email
+        const displayName = user.user_metadata?.display_name || user.email;
+        setUserName(displayName);
       }
     };
     getUser();
@@ -35,10 +37,10 @@ const Header = () => {
       <div className="flex-1 flex items-center space-x-6">
         {/* Logo Section */}
         <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 bg-primary rounded-lg flex items-center justify-center">
+          <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
             <QueueListIcon className="w-4 h-4 text-white" />
           </div>
-          <span className="text-xl font-bold text-primary tracking-wide">QSuite</span>
+          <span className="text-xl font-bold text-blue-600 tracking-wide">QSuite</span>
         </div>
 
         {/* Navigation Section */}
@@ -102,7 +104,7 @@ const Header = () => {
             className="btn btn-sm bg-gray-100 hover:bg-blue-50 border border-gray-300 text-gray-600 hover:text-blue-600 font-medium"
           >
             <UserIcon className="w-4 h-4 mr-1 opacity-70" />
-            <span className="text-sm">{userEmail || "Loading..."}</span>
+            <span className="text-sm">{userName || "Loading..."}</span>
             <ChevronDownIcon className="w-3 h-3 ml-1 opacity-60" />
           </div>
           <ul 

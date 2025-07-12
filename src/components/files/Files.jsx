@@ -40,6 +40,7 @@ const Files = () => {
         .order('uploaded_date', { ascending: false });
       
       if (error) throw error;
+      console.log('Fetched app files:', data);
       setAppFiles(data || []);
     } catch (error) {
       console.error('Error fetching app files:', error);
@@ -58,6 +59,7 @@ const Files = () => {
         .order('uploaded_date', { ascending: false });
       
       if (error) throw error;
+      console.log('Fetched test files:', data);
       setTestFiles(data || []);
     } catch (error) {
       console.error('Error fetching test files:', error);
@@ -165,7 +167,7 @@ const Files = () => {
     
     try {
       const filesToDelete = appFiles.filter(file => selectedFiles.includes(file.id));
-      const filePaths = filesToDelete.map(file => file.file_path);
+      const filePaths = filesToDelete.map(file => file.file_path || file.path);
       
       // Delete files from storage
       const { error: storageError } = await supabase.storage
@@ -286,7 +288,7 @@ const Files = () => {
           .insert([{
             user_id: user.id,
             name: selectedTestFile.name,
-            path: filePath,
+            file_path: filePath,
             size: selectedTestFile.size,
             type: getFileType(selectedTestFile.name),
             uploaded_date: new Date().toISOString()
@@ -319,7 +321,7 @@ const Files = () => {
     
     try {
       const filesToDelete = testFiles.filter(file => selectedTestFiles.includes(file.id));
-      const filePaths = filesToDelete.map(file => file.file_path);
+      const filePaths = filesToDelete.map(file => file.file_path || file.path);
       
       // Delete files from storage
       const { error: storageError } = await supabase.storage
@@ -362,6 +364,41 @@ const Files = () => {
       setSelectedTestFiles(testFiles.map(file => file.id));
     }
     setSelectAllTest(!selectAllTest);
+  };
+
+  const handlePreviewFile = async (file, isTestFile = false) => {
+    try {
+      // Handle both possible field names for file path
+      const filePath = file.file_path || file.path;
+      
+      console.log('Attempting to open file:', {
+        fileName: file.filename || file.name,
+        filePath: filePath,
+        isTestFile: isTestFile,
+        fileObject: file
+      });
+
+      if (!filePath) {
+        throw new Error('File path not found in database record');
+      }
+      
+      const { data, error } = await supabase.storage
+        .from('files')
+        .createSignedUrl(filePath, 3600); // 1 hour expiry
+      
+      if (error) {
+        console.error('Supabase storage error:', error);
+        throw error;
+      }
+      
+      console.log('Successfully got signed URL:', data.signedUrl);
+      
+      // Open in new tab
+      window.open(data.signedUrl, '_blank');
+    } catch (error) {
+      console.error('Error opening file:', error);
+      alert('Error opening file: ' + error.message);
+    }
   };
 
   const canUpload = appName.trim() && version.trim();
@@ -519,7 +556,15 @@ const Files = () => {
                             {file.os}
                           </span>
                         </td>
-                        <td className="text-sm text-gray-600">{file.filename}</td>
+                        <td>
+                          <button
+                            onClick={() => handlePreviewFile(file)}
+                            className="text-sm text-blue-600 hover:text-blue-800 hover:underline cursor-pointer bg-transparent border-none p-0"
+                            title="Click to open file"
+                          >
+                            {file.filename}
+                          </button>
+                        </td>
                         <td className="text-sm">{formatFileSize(file.size)}</td>
                         <td className="text-sm text-gray-500">
                           {new Date(file.uploaded_date).toLocaleDateString()}
@@ -635,7 +680,15 @@ const Files = () => {
                             {file.type}
                           </span>
                         </td>
-                        <td className="font-medium">{file.name}</td>
+                        <td>
+                          <button
+                            onClick={() => handlePreviewFile(file, true)}
+                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer bg-transparent border-none p-0"
+                            title="Click to open file"
+                          >
+                            {file.name}
+                          </button>
+                        </td>
                         <td className="text-sm">{formatFileSize(file.size)}</td>
                         <td className="text-sm text-gray-500">
                           {new Date(file.uploaded_date).toLocaleDateString()}

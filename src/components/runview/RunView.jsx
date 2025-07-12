@@ -10,7 +10,8 @@ import {
   ExclamationTriangleIcon,
   DocumentTextIcon,
   FolderIcon,
-  TrashIcon
+  TrashIcon,
+  MagnifyingGlassIcon
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../services/supabaseClient";
 import Sidebar from "./Sidebar";
@@ -26,12 +27,21 @@ const RunView = () => {
   const [runningTests, setRunningTests] = useState(new Set());
   const [selectedTestCases, setSelectedTestCases] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [searchText, setSearchText] = useState('');
 
   useEffect(() => {
     fetchCategories();
     fetchTestCases();
     fetchTestRuns();
   }, []);
+
+  // Auto-update selectAll when filtered test cases change
+  useEffect(() => {
+    const visibleTestCases = getFilteredTestCases();
+    const allVisible = visibleTestCases.map(tc => tc.id);
+    const allSelected = allVisible.length > 0 && allVisible.every(id => selectedTestCases.includes(id));
+    setSelectAll(allSelected);
+  }, [testCases, selectedCategory, searchText, selectedTestCases]);
 
   const fetchCategories = async () => {
     try {
@@ -131,11 +141,17 @@ const RunView = () => {
   // Selection management
   const handleSelectTestCase = (testCaseId) => {
     setSelectedTestCases(prev => {
-      if (prev.includes(testCaseId)) {
-        return prev.filter(id => id !== testCaseId);
-      } else {
-        return [...prev, testCaseId];
-      }
+      const newSelected = prev.includes(testCaseId)
+        ? prev.filter(id => id !== testCaseId)
+        : [...prev, testCaseId];
+      
+      // Auto-update selectAll checkbox based on whether all visible test cases are selected
+      const visibleTestCases = getFilteredTestCases();
+      const allVisible = visibleTestCases.map(tc => tc.id);
+      const allSelected = allVisible.length > 0 && allVisible.every(id => newSelected.includes(id));
+      setSelectAll(allSelected);
+      
+      return newSelected;
     });
   };
 
@@ -176,14 +192,54 @@ const RunView = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // For now, simulate test execution without database
-      // You can create the test_runs table later if needed
+      const startTime = new Date().toISOString();
+      
+      // Create initial test run record in database
+      const { data: testRun, error: createError } = await supabase
+        .from('test_runs')
+        .insert({
+          test_case_id: testCaseId,
+          user_id: user.id,
+          status: 'running',
+          started_at: startTime,
+          created_at: startTime
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating test run:', createError);
+        throw createError;
+      }
+
       console.log(`Running test case ${testCaseId}...`);
       
       // Simulate test execution (replace with actual test execution logic)
       setTimeout(async () => {
         const success = Math.random() > 0.3; // 70% success rate for demo
+        const endTime = new Date().toISOString();
+        const duration = Math.floor((new Date(endTime) - new Date(startTime)) / 1000);
         
+        // Update test run with results
+        const { error: updateError } = await supabase
+          .from('test_runs')
+          .update({
+            status: success ? 'passed' : 'failed',
+            completed_at: endTime,
+            duration: duration,
+            result: {
+              success: success,
+              message: success 
+                ? 'All tests completed successfully.' 
+                : 'Some tests failed. Check the logs for details.'
+            }
+          })
+          .eq('id', testRun.id);
+
+        if (updateError) {
+          console.error('Error updating test run:', updateError);
+        }
+
         console.log(`Test ${testCaseId} ${success ? 'passed' : 'failed'}`);
         
         setRunningTests(prev => {
@@ -195,7 +251,7 @@ const RunView = () => {
         // Show a notification or result
         alert(`Test ${success ? 'passed' : 'failed'}! ${success ? 'All tests completed successfully.' : 'Some tests failed. Check the logs for details.'}`);
         
-        // Refresh data if test_runs table exists
+        // Refresh data to show updated test runs
         fetchTestRuns();
       }, 3000 + Math.random() * 2000); // Random delay between 3-5 seconds
 
@@ -211,8 +267,19 @@ const RunView = () => {
   };
 
   const getFilteredTestCases = () => {
-    if (selectedCategory === 'all') return testCases;
-    return testCases.filter(tc => tc.category_id === selectedCategory);
+    let filtered = selectedCategory === 'all' ? testCases : testCases.filter(tc => tc.category_id === selectedCategory);
+    
+    // Apply search filter
+    if (searchText.trim()) {
+      const searchLower = searchText.toLowerCase();
+      filtered = filtered.filter(tc =>
+        tc.name.toLowerCase().includes(searchLower) ||
+        tc.description?.toLowerCase().includes(searchLower) ||
+        getCategoryById(tc.category_id)?.name.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    return filtered;
   };
 
   const getCategoryById = (categoryId) => {
@@ -364,7 +431,7 @@ const RunView = () => {
           <div className="flex-1 flex flex-col">
             {/* Header */}
             <div className="p-6 border-b border-gray-200 bg-white">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-4">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">
                     {selectedCategoryName}
@@ -386,6 +453,18 @@ const RunView = () => {
                     </button>
                   )}
                 </div>
+              </div>
+              
+              {/* Search Bar */}
+              <div className="relative">
+                <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search test cases..."
+                  className="input input-bordered w-full pl-10"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                />
               </div>
             </div>
 

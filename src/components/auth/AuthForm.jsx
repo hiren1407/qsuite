@@ -2,13 +2,14 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../services/supabaseClient";
 import { useNavigate, Link } from "react-router-dom";
-import { AtSymbolIcon, LockClosedIcon } from "@heroicons/react/24/outline";
+import { AtSymbolIcon, LockClosedIcon, QueueListIcon } from "@heroicons/react/24/outline";
 
 const AuthForm = ({ type }) => {
   const [mode, setMode] = useState(type); // login | register | forgot
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [name, setName] = useState("");
   const [resetEmail, setResetEmail] = useState("");
   const [message, setMessage] = useState("");
 
@@ -29,23 +30,56 @@ const AuthForm = ({ type }) => {
     setMessage("Loading...");
 
     if (mode === "register") {
+      if (!name.trim()) {
+        setMessage("Name is required.");
+        return;
+      }
       if (password !== confirmPassword) {
         setMessage("Passwords do not match.");
         return;
       }
-      const { error } = await supabase.auth.signUp({ email, password });
+      
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/email-confirmed`,
+          data: {
+            display_name: name.trim()
+          }
+        }
+      });
+      
       if (error) return setMessage(error.message);
-      setMessage("Registered successfully! Check your email to verify.");
+      
+      if (data?.user && !data.session) {
+        setMessage("Registration successful! Please check your email and click the verification link to complete your registration.");
+      } else {
+        setMessage("Registered successfully!");
+        // If auto-confirmed (email confirmation disabled), redirect
+        if (data.session) {
+          navigate("/dashboard");
+        }
+      }
     } else if (mode === "login") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return setMessage(error.message);
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        if (error.message.includes('Email not confirmed')) {
+          setMessage("Please verify your email address before signing in. Check your inbox for the verification link.");
+        } else {
+          setMessage(error.message);
+        }
+        return;
+      }
       navigate("/dashboard");
     }
   };
 
   const handleResetPassword = async () => {
     setMessage("Sending...");
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail);
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/reset-password`
+    });
     if (error) setMessage(error.message);
     else setMessage("Check your email for the reset link.");
   };
@@ -60,9 +94,12 @@ const AuthForm = ({ type }) => {
         className="card w-full max-w-md bg-base-100 shadow-xl px-8 py-6"
       >
         {/* Branding */}
-        <h1 className="text-4xl font-bold text-primary text-center mb-6">
-          QSuite
-        </h1>
+        <div className="flex items-center justify-center space-x-3 mb-8">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <QueueListIcon className="w-5 h-5 text-white" />
+          </div>
+          <span className="text-2xl font-bold text-blue-600 tracking-wide">QSuite</span>
+        </div>
 
         {/* Titles */}
         {mode === "login" && (
@@ -81,6 +118,26 @@ const AuthForm = ({ type }) => {
           <>
             <h2 className="text-2xl text-center font-semibold mb-1">Reset Password</h2>
             <p className="text-md text-center text-gray-500 mb-6">Enter your email to receive a reset link</p>
+          </>
+        )}
+
+        {/* Name (register only) */}
+        {mode === "register" && (
+          <>
+            <label className="label"><span className="label-text">Full Name</span></label>
+            <div className="input input-bordered w-full flex items-center gap-2 mb-6">
+              <svg className="w-5 h-5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Full Name"
+                className="grow"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
           </>
         )}
 
