@@ -15,6 +15,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../services/supabaseClient";
 import Sidebar from "./Sidebar";
+import Modal from "../common/Modal";
+import { useModal } from "../../hooks/useModal";
 
 const RunView = () => {
   const navigate = useNavigate();
@@ -28,6 +30,9 @@ const RunView = () => {
   const [selectedTestCases, setSelectedTestCases] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [searchText, setSearchText] = useState('');
+
+  // Modal hook for replacing alerts and confirms
+  const { modalState, hideModal, showError, showSuccess } = useModal();
 
   useEffect(() => {
     fetchCategories();
@@ -168,13 +173,7 @@ const RunView = () => {
   const handleRunSelectedTestCases = async () => {
     if (selectedTestCases.length === 0) return;
     
-    const confirmed = window.confirm(
-      `Are you sure you want to run ${selectedTestCases.length} test case(s)?`
-    );
-    
-    if (!confirmed) return;
-
-    // Run all selected test cases
+    // Run all selected test cases directly without confirmation
     for (const testCaseId of selectedTestCases) {
       await handleRunTest(testCaseId);
       // Add a small delay between test executions
@@ -249,15 +248,18 @@ const RunView = () => {
         });
 
         // Show a notification or result
-        alert(`Test ${success ? 'passed' : 'failed'}! ${success ? 'All tests completed successfully.' : 'Some tests failed. Check the logs for details.'}`);
-        
+        if (success) {
+          showSuccess('Test Passed', 'All tests completed successfully.');
+        } else {
+          showError('Test Failed', 'Some tests failed. Check the logs for details.');
+        }
         // Refresh data to show updated test runs
         fetchTestRuns();
       }, 3000 + Math.random() * 2000); // Random delay between 3-5 seconds
 
     } catch (error) {
       console.error('Error running test:', error);
-      alert('Error running test: ' + error.message);
+      showError('Test Error', 'Error running test: ' + error.message);
       setRunningTests(prev => {
         const newSet = new Set(prev);
         newSet.delete(testCaseId);
@@ -601,7 +603,7 @@ const RunView = () => {
                                   </div>
                                 </td>
                                 <td>
-                                  <span className="badge badge-outline badge-sm">
+                                  <span className="badge badge-outline badge-lg text-xs">
                                     {testCase.test_categories?.name}
                                   </span>
                                 </td>
@@ -772,6 +774,19 @@ const RunView = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal for error, success messages and confirmations */}
+      <Modal 
+        isOpen={modalState.isOpen}
+        onClose={hideModal}
+        onConfirm={modalState.onConfirm}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        showCancel={modalState.showCancel}
+      />
     </div>
   );
 };

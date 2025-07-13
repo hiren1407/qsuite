@@ -8,6 +8,8 @@ import {
   LightBulbIcon
 } from '@heroicons/react/24/outline';
 import { supabase } from '../../services/supabaseClient';
+import Modal from '../common/Modal';
+import { useModal } from '../../hooks/useModal';
 
 const AiTestGenerator = ({ onTestsGenerated, currentFileId, onClose, isOpen = true, categories = [], selectedCategory = 'all' }) => {
   const [requirements, setRequirements] = useState('');
@@ -15,6 +17,9 @@ const AiTestGenerator = ({ onTestsGenerated, currentFileId, onClose, isOpen = tr
   const [generatedTests, setGeneratedTests] = useState([]);
   const [selectedTests, setSelectedTests] = useState(new Set());
   const [targetCategory, setTargetCategory] = useState(selectedCategory !== 'all' ? selectedCategory : '');
+
+  // Modal hook
+  const { modalState, hideModal, showSuccess, showError } = useModal();
 
   console.log('AiTestGenerator rendered with props:', { onTestsGenerated: !!onTestsGenerated, currentFileId, onClose: !!onClose, isOpen });
 
@@ -75,7 +80,7 @@ const AiTestGenerator = ({ onTestsGenerated, currentFileId, onClose, isOpen = tr
       }
     } catch (error) {
       console.error('Error generating tests:', error);
-      alert('Failed to generate tests. Please try again.');
+      showError('Generation Failed', 'Failed to generate tests. Please try again.');
     } finally {
       setIsGenerating(false);
     }
@@ -95,7 +100,7 @@ const AiTestGenerator = ({ onTestsGenerated, currentFileId, onClose, isOpen = tr
     const selectedTestsArray = generatedTests.filter((_, index) => selectedTests.has(index));
     
     if (selectedTestsArray.length === 0) {
-      alert('Please select at least one test case to insert.');
+      showError('Selection Required', 'Please select at least one test case to insert.');
       return;
     }
 
@@ -122,14 +127,14 @@ const AiTestGenerator = ({ onTestsGenerated, currentFileId, onClose, isOpen = tr
       setSelectedTests(new Set());
       
       // Show success message
-      alert(`Successfully created ${selectedTestsArray.length} test case(s)!`);
+      showSuccess('Tests Created', `Successfully created ${selectedTestsArray.length} test case(s)!`);
       
       // Close modal after successful insertion
       if (onClose) onClose();
       
     } catch (error) {
       console.error('Error inserting tests:', error);
-      alert(`Failed to insert test cases: ${error.message || 'Please try again.'}`);
+      showError('Insert Failed', `Failed to insert test cases: ${error.message || 'Please try again.'}`);
       // Don't close modal on error so user can try again
     }
   };

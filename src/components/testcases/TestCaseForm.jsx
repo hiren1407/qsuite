@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { XMarkIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import { supabase } from "../../services/supabaseClient";
+import Modal from "../common/Modal";
+import { useModal } from "../../hooks/useModal";
 
 const TestCaseForm = ({ testCase, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
@@ -15,6 +17,9 @@ const TestCaseForm = ({ testCase, onClose, onSubmit }) => {
   const [selectedFileIds, setSelectedFileIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Modal hook for replacing alerts
+  const { modalState, hideModal, showError, showSuccess } = useModal();
 
   useEffect(() => {
     fetchCategories();
@@ -196,11 +201,17 @@ const TestCaseForm = ({ testCase, onClose, onSubmit }) => {
         }
       }
 
+      // Show success message
+      showSuccess(
+        testCase ? 'Test Case Updated' : 'Test Case Created', 
+        testCase ? 'Test case has been updated successfully.' : 'Test case has been created successfully.'
+      );
+
       // Pass the new category ID back to parent if one was created
       onSubmit(newCategoryCreated ? categoryId : null);
     } catch (error) {
       console.error('Error saving test case:', error);
-      alert('Error saving test case: ' + error.message);
+      showError('Error saving test case: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -446,6 +457,19 @@ const TestCaseForm = ({ testCase, onClose, onSubmit }) => {
           </div>
         </form>
       </div>
+
+      {/* Modal for error messages */}
+      <Modal 
+        isOpen={modalState.isOpen}
+        onClose={hideModal}
+        onConfirm={modalState.onConfirm}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        showCancel={modalState.showCancel}
+      />
     </div>
   );
 };

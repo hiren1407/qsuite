@@ -5,6 +5,8 @@ import {
   TrashIcon
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../services/supabaseClient";
+import Modal from "../common/Modal";
+import { useModal } from "../../hooks/useModal";
 
 const Files = () => {
   const [appName, setAppName] = useState("");
@@ -21,6 +23,9 @@ const Files = () => {
   const [uploadingTest, setUploadingTest] = useState(false);
   const [selectedTestFiles, setSelectedTestFiles] = useState([]);
   const [selectAllTest, setSelectAllTest] = useState(false);
+
+  // Modal hook for replacing alerts and confirms
+  const { modalState, hideModal, showError, showSuccess } = useModal();
 
   // Fetch existing app files from Supabase
   useEffect(() => {
@@ -130,9 +135,12 @@ const Files = () => {
       document.getElementById('file-input').value = '';
       await fetchAppFiles();
       
+      // Show success message
+      showSuccess('File Uploaded', 'File has been uploaded successfully.');
+      
     } catch (error) {
       console.error('Error uploading file:', error);
-      alert('Error uploading file: ' + error.message);
+      showError('Upload Error', 'Error uploading file: ' + error.message);
     } finally {
       setUploading(false);
     }
@@ -156,9 +164,12 @@ const Files = () => {
       if (deleteError) throw deleteError;
 
       await fetchAppFiles();
+      
+      // Show success message
+      showSuccess('File Deleted', 'File has been deleted successfully.');
     } catch (error) {
       console.error('Error deleting file:', error);
-      alert('Error deleting file: ' + error.message);
+      showError('Delete Error', 'Error deleting file: ' + error.message);
     }
   };
 
@@ -187,9 +198,12 @@ const Files = () => {
       setSelectedFiles([]);
       setSelectAll(false);
       await fetchAppFiles();
+      
+      // Show success message
+      showSuccess('Files Deleted', `${selectedFiles.length} file(s) have been deleted successfully.`);
     } catch (error) {
       console.error('Error deleting files:', error);
-      alert('Error deleting files: ' + error.message);
+      showError('Delete Error', 'Error deleting files: ' + error.message);
     }
   };
 
@@ -308,9 +322,12 @@ const Files = () => {
       document.getElementById('test-file-input').value = '';
       await fetchTestFiles();
       
+      // Show success message
+      showSuccess('Test File Uploaded', 'Test file has been uploaded successfully.');
+      
     } catch (error) {
       console.error('Error uploading test file:', error);
-      alert('Error uploading test file: ' + error.message);
+      showError('Upload Error', 'Error uploading test file: ' + error.message);
     } finally {
       setUploadingTest(false);
     }
@@ -341,9 +358,12 @@ const Files = () => {
       setSelectedTestFiles([]);
       setSelectAllTest(false);
       await fetchTestFiles();
+      
+      // Show success message
+      showSuccess('Test Files Deleted', `${selectedTestFiles.length} test file(s) have been deleted successfully.`);
     } catch (error) {
       console.error('Error deleting test files:', error);
-      alert('Error deleting test files: ' + error.message);
+      showError('Delete Error', 'Error deleting test files: ' + error.message);
     }
   };
 
@@ -396,7 +416,7 @@ const Files = () => {
       window.open(data.signedUrl, '_blank');
     } catch (error) {
       console.error('Error opening file:', error);
-      alert('Error opening file: ' + error.message);
+      showError('Open File Error', 'Error opening file: ' + error.message);
     }
   };
 
@@ -701,6 +721,19 @@ const Files = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal for error and success messages */}
+      <Modal 
+        isOpen={modalState.isOpen}
+        onClose={hideModal}
+        onConfirm={modalState.onConfirm}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        showCancel={modalState.showCancel}
+      />
     </div>
   );
 };

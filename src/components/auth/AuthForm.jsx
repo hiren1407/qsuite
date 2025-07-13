@@ -12,6 +12,7 @@ const AuthForm = ({ type }) => {
   const [name, setName] = useState("");
   const [resetEmail, setResetEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -27,15 +28,18 @@ const AuthForm = ({ type }) => {
 
   const handleAuth = async (e) => {
     e.preventDefault();
-    setMessage("Loading...");
+    setLoading(true);
+    setMessage("");
 
     if (mode === "register") {
       if (!name.trim()) {
         setMessage("Name is required.");
+        setLoading(false);
         return;
       }
       if (password !== confirmPassword) {
         setMessage("Passwords do not match.");
+        setLoading(false);
         return;
       }
       
@@ -50,12 +54,18 @@ const AuthForm = ({ type }) => {
         }
       });
       
-      if (error) return setMessage(error.message);
+      if (error) {
+        setMessage(error.message);
+        setLoading(false);
+        return;
+      }
       
       if (data?.user && !data.session) {
         setMessage("Registration successful! Please check your email and click the verification link to complete your registration.");
+        setLoading(false);
       } else {
         setMessage("Registered successfully!");
+        setLoading(false);
         // If auto-confirmed (email confirmation disabled), redirect
         if (data.session) {
           navigate("/dashboard");
@@ -69,19 +79,26 @@ const AuthForm = ({ type }) => {
         } else {
           setMessage(error.message);
         }
+        setLoading(false);
         return;
       }
+      setLoading(false);
       navigate("/dashboard");
     }
   };
 
   const handleResetPassword = async () => {
-    setMessage("Sending...");
+    setLoading(true);
+    setMessage("");
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
       redirectTo: `${window.location.origin}/reset-password`
     });
-    if (error) setMessage(error.message);
-    else setMessage("Check your email for the reset link.");
+    if (error) {
+      setMessage(error.message);
+    } else {
+      setMessage("Check your email for the reset link.");
+    }
+    setLoading(false);
   };
 
   return (
@@ -218,8 +235,16 @@ const AuthForm = ({ type }) => {
               type="button"
               className="btn btn-primary w-full"
               onClick={handleResetPassword}
+              disabled={loading}
             >
-              Send Reset Link
+              {loading ? (
+                <>
+                  <span className="loading loading-spinner loading-sm"></span>
+                  Sending...
+                </>
+              ) : (
+                "Send Reset Link"
+              )}
             </button>
             <button
               type="button"
@@ -234,8 +259,19 @@ const AuthForm = ({ type }) => {
             </button>
           </>
         ) : (
-          <button type="submit" className="btn btn-primary w-full mt-2">
-            {mode === "login" ? "Login" : "Register"}
+          <button 
+            type="submit" 
+            className="btn btn-primary w-full mt-2"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <span className="loading loading-spinner loading-sm"></span>
+                {mode === "login" ? "Signing in..." : "Creating account..."}
+              </>
+            ) : (
+              mode === "login" ? "Login" : "Register"
+            )}
           </button>
         )}
 

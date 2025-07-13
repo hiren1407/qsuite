@@ -7,6 +7,8 @@ import {
   PlayIcon,
   TrashIcon
 } from "@heroicons/react/24/outline";
+import Modal from "../common/Modal";
+import { useModal } from "../../hooks/useModal";
 
 const Sidebar = ({ 
   categories, 
@@ -23,6 +25,9 @@ const Sidebar = ({
   const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [selectAll, setSelectAll] = useState(false);
+
+  // Modal hook for replacing confirms
+  const { modalState, hideModal, showConfirm, showSuccess } = useModal();
 
   // Auto-expand selected category
   useEffect(() => {
@@ -69,15 +74,18 @@ const Sidebar = ({
   const handleDeleteSelected = () => {
     if (selectedItems.size === 0) return;
     
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${selectedItems.size} test case(s)?`
+    showConfirm(
+      'Delete Test Cases',
+      `Are you sure you want to delete ${selectedItems.size} test case(s)?`,
+      () => {
+        const count = selectedItems.size;
+        onDeleteTestCases(Array.from(selectedItems));
+        setSelectedItems(new Set());
+        setSelectAll(false);
+        // Show success message
+        showSuccess('Test Cases Deleted', `${count} test case(s) have been deleted successfully.`);
+      }
     );
-    
-    if (confirmed) {
-      onDeleteTestCases(Array.from(selectedItems));
-      setSelectedItems(new Set());
-      setSelectAll(false);
-    }
   };
 
   const allTestCasesCount = testCases.length;
@@ -240,6 +248,19 @@ const Sidebar = ({
           </div>
         </div>
       </div>
+
+      {/* Modal for confirmations */}
+      <Modal 
+        isOpen={modalState.isOpen}
+        onClose={hideModal}
+        onConfirm={modalState.onConfirm}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        showCancel={modalState.showCancel}
+      />
     </div>
   );
 };

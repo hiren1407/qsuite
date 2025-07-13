@@ -5,6 +5,7 @@ import { supabase } from "../../services/supabaseClient";
 const ResetPassword = () => {
   const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -63,10 +64,19 @@ const ResetPassword = () => {
   }, []);
 
   const handleReset = async () => {
+    setLoading(true);
+    setMessage("");
     const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) return setMessage(error.message);
+    if (error) {
+      setMessage(error.message);
+      setLoading(false);
+      return;
+    }
     setMessage("Password updated! Redirecting to login...");
-    setTimeout(() => navigate("/"), 2000);
+    setTimeout(() => {
+      setLoading(false);
+      navigate("/");
+    }, 2000);
   };
 
   return (
@@ -80,8 +90,19 @@ const ResetPassword = () => {
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
         />
-        <button className="btn btn-primary w-full" onClick={handleReset}>
-          Update Password
+        <button 
+          className="btn btn-primary w-full" 
+          onClick={handleReset}
+          disabled={loading || !newPassword.trim()}
+        >
+          {loading ? (
+            <>
+              <span className="loading loading-spinner loading-sm"></span>
+              Updating...
+            </>
+          ) : (
+            "Update Password"
+          )}
         </button>
         {message && <p className="text-sm text-center text-warning mt-3">{message}</p>}
       </div>

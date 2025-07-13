@@ -106,7 +106,14 @@ const App = () => {
 
 
   if (loading) {
-    return <div className="p-6 text-center">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-base-200">
+        <div className="text-center">
+          <span className="loading loading-spinner loading-lg text-primary"></span>
+          <p className="mt-4 text-base-content">Checking authentication...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

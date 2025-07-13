@@ -20,14 +20,12 @@ const Queue = () => {
   const [testRuns, setTestRuns] = useState([]);
   const [filteredRuns, setFilteredRuns] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [testCases, setTestCases] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Filter states
   const [filters, setFilters] = useState({
     status: 'all', // all, passed, failed, not-ran
     category: 'all',
-    testCase: 'all',
     dateRange: 'all', // all, today, week, month
     searchText: ''
   });
@@ -37,7 +35,6 @@ const Queue = () => {
   useEffect(() => {
     fetchTestRuns();
     fetchCategories();
-    fetchTestCases();
   }, []);
 
   useEffect(() => {
@@ -136,27 +133,6 @@ const Queue = () => {
     }
   };
 
-  const fetchTestCases = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('test_cases')
-        .select(`
-          *,
-          test_categories(id, name)
-        `)
-        .eq('user_id', user.id)
-        .order('name');
-      
-      if (error) throw error;
-      setTestCases(data || []);
-    } catch (error) {
-      console.error('Error fetching test cases:', error);
-    }
-  };
-
   const applyFilters = () => {
     let filtered = [...testRuns];
 
@@ -167,14 +143,12 @@ const Queue = () => {
 
     // Category filter
     if (filters.category !== 'all') {
-      filtered = filtered.filter(run => 
-        run.test_cases?.test_categories?.id === parseInt(filters.category)
-      );
-    }
-
-    // Test case filter
-    if (filters.testCase !== 'all') {
-      filtered = filtered.filter(run => run.test_case_id === parseInt(filters.testCase));
+      filtered = filtered.filter(run => {
+        // For test runs, the structure is run.test_cases.test_categories.id
+        // For unrun test cases, the structure is run.test_cases.test_categories.id (same)
+        const categoryId = run.test_cases?.test_categories?.id;
+        return categoryId && categoryId.toString() === filters.category;
+      });
     }
 
     // Date range filter
@@ -223,7 +197,6 @@ const Queue = () => {
     setFilters({
       status: 'all',
       category: 'all',
-      testCase: 'all',
       dateRange: 'all',
       searchText: ''
     });
@@ -272,7 +245,6 @@ const Queue = () => {
     let count = 0;
     if (filters.status !== 'all') count++;
     if (filters.category !== 'all') count++;
-    if (filters.testCase !== 'all') count++;
     if (filters.dateRange !== 'all') count++;
     if (filters.searchText.trim()) count++;
     return count;
@@ -370,25 +342,6 @@ const Queue = () => {
                 {categories.map(category => (
                   <option key={category.id} value={category.id}>
                     {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Test Case Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Test Case
-              </label>
-              <select
-                className="select select-bordered w-full"
-                value={filters.testCase}
-                onChange={(e) => handleFilterChange('testCase', e.target.value)}
-              >
-                <option value="all">All Test Cases</option>
-                {testCases.map(testCase => (
-                  <option key={testCase.id} value={testCase.id}>
-                    {testCase.name}
                   </option>
                 ))}
               </select>

@@ -16,6 +16,8 @@ import {
 import { supabase } from "../../services/supabaseClient";
 import TestCaseForm from "./TestCaseForm";
 import AiTestGenerator from "../ai/AiTestGenerator";
+import Modal from "../common/Modal";
+import { useModal } from "../../hooks/useModal";
 
 const TestCases = () => {
   const location = useLocation();
@@ -36,6 +38,9 @@ const TestCases = () => {
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [showAiGenerator, setShowAiGenerator] = useState(false);
+
+  // Modal hook
+  const { modalState, hideModal, showSuccess, showError, showConfirm } = useModal();
 
   useEffect(() => {
     fetchCategories();
@@ -147,7 +152,7 @@ const TestCases = () => {
       setSelectedCategory(data.id);
     } catch (error) {
       console.error('Error creating category:', error);
-      alert('Error creating category: ' + error.message);
+      showError('Error Creating Category', error.message);
     } finally {
       setCreatingCategory(false);
     }
@@ -166,7 +171,7 @@ const TestCases = () => {
       await fetchCategories();
     } catch (error) {
       console.error('Error updating category:', error);
-      alert('Error updating category: ' + error.message);
+      showError('Error Updating Category', error.message);
     }
   };
 
@@ -174,29 +179,34 @@ const TestCases = () => {
     const category = categories.find(c => c.id === categoryId);
     const categoryTestCases = testCases.filter(tc => tc.category_id === categoryId);
     
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${category?.name}"? This will also delete ${categoryTestCases.length} test case(s) in this category.`
+    showConfirm(
+      'Delete Category',
+      `Are you sure you want to delete "${category?.name}"? This will also delete ${categoryTestCases.length} test case(s) in this category.`,
+      async () => {
+        try {
+          const { error } = await supabase
+            .from('test_categories')
+            .delete()
+            .eq('id', categoryId);
+
+          if (error) throw error;
+
+          if (selectedCategory === categoryId) {
+            setSelectedCategory('all');
+          }
+          await fetchCategories();
+          await fetchTestCases();
+          
+          // Show success message
+          showSuccess('Category Deleted', `Category "${category?.name}" and ${categoryTestCases.length} test case(s) have been deleted successfully.`);
+        } catch (error) {
+          console.error('Error deleting category:', error);
+          showError('Error Deleting Category', error.message);
+        }
+      },
+      'Delete',
+      'Cancel'
     );
-    
-    if (!confirmed) return;
-
-    try {
-      const { error } = await supabase
-        .from('test_categories')
-        .delete()
-        .eq('id', categoryId);
-
-      if (error) throw error;
-
-      if (selectedCategory === categoryId) {
-        setSelectedCategory('all');
-      }
-      await fetchCategories();
-      await fetchTestCases();
-    } catch (error) {
-      console.error('Error deleting category:', error);
-      alert('Error deleting category: ' + error.message);
-    }
   };
 
   // Test case management functions
@@ -331,52 +341,65 @@ const TestCases = () => {
   };
 
   const handleDeleteTestCase = async (testCaseId) => {
-    const confirmed = window.confirm('Are you sure you want to delete this test case?');
-    if (!confirmed) return;
+    showConfirm(
+      'Delete Test Case',
+      'Are you sure you want to delete this test case?',
+      async () => {
+        try {
+          const { error } = await supabase
+            .from('test_cases')
+            .delete()
+            .eq('id', testCaseId);
 
-    try {
-      const { error } = await supabase
-        .from('test_cases')
-        .delete()
-        .eq('id', testCaseId);
+          if (error) throw error;
 
-      if (error) throw error;
-
-      if (selectedTestCase?.id === testCaseId) {
-        setSelectedTestCase(null);
-      }
-      await fetchTestCases();
-    } catch (error) {
-      console.error('Error deleting test case:', error);
-      alert('Error deleting test case: ' + error.message);
-    }
+          if (selectedTestCase?.id === testCaseId) {
+            setSelectedTestCase(null);
+          }
+          await fetchTestCases();
+          
+          // Show success message
+          showSuccess('Test Case Deleted', 'Test case has been deleted successfully.');
+        } catch (error) {
+          console.error('Error deleting test case:', error);
+          showError('Error Deleting Test Case', error.message);
+        }
+      },
+      'Delete',
+      'Cancel'
+    );
   };
 
   const handleDeleteSelectedTestCases = async () => {
     if (selectedTestCases.length === 0) return;
     
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${selectedTestCases.length} test case(s)?`
+    showConfirm(
+      'Delete Test Cases',
+      `Are you sure you want to delete ${selectedTestCases.length} test case(s)?`,
+      async () => {
+        try {
+          const { error } = await supabase
+            .from('test_cases')
+            .delete()
+            .in('id', selectedTestCases);
+
+          if (error) throw error;
+
+          setSelectedTestCases([]);
+          setSelectAll(false);
+          setSelectedTestCase(null);
+          await fetchTestCases();
+          
+          // Show success message
+          showSuccess('Test Cases Deleted', `${selectedTestCases.length} test case(s) have been deleted successfully.`);
+        } catch (error) {
+          console.error('Error deleting test cases:', error);
+          showError('Error Deleting Test Cases', error.message);
+        }
+      },
+      'Delete',
+      'Cancel'
     );
-    
-    if (!confirmed) return;
-
-    try {
-      const { error } = await supabase
-        .from('test_cases')
-        .delete()
-        .in('id', selectedTestCases);
-
-      if (error) throw error;
-
-      setSelectedTestCases([]);
-      setSelectAll(false);
-      setSelectedTestCase(null);
-      await fetchTestCases();
-    } catch (error) {
-      console.error('Error deleting test cases:', error);
-      alert('Error deleting test cases: ' + error.message);
-    }
   };
 
   // Selection management
@@ -866,7 +889,7 @@ const TestCases = () => {
                               </div>
                             </td>
                             <td>
-                              <span className="badge badge-outline badge-sm">
+                              <span className="badge badge-outline badge-lg text-xs">
                                 {testCase.test_categories?.name}
                               </span>
                             </td>
@@ -966,6 +989,19 @@ const TestCases = () => {
           />
         </>
       )}
+
+      {/* Modal Component */}
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={hideModal}
+        onConfirm={modalState.onConfirm}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        showCancel={modalState.showCancel}
+      />
     </div>
   );
 };

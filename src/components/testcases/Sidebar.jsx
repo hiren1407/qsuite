@@ -10,6 +10,8 @@ import {
   XMarkIcon
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../services/supabaseClient";
+import Modal from "../common/Modal";
+import { useModal } from "../../hooks/useModal";
 
 const Sidebar = ({ 
   categories, 
@@ -27,6 +29,9 @@ const Sidebar = ({
   const [showCreateCategory, setShowCreateCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
+
+  // Modal hook for replacing alerts and confirms
+  const { modalState, hideModal, showError, showConfirm, showSuccess } = useModal();
 
   // Auto-expand selected category
   useEffect(() => {
@@ -73,15 +78,18 @@ const Sidebar = ({
   const handleDeleteSelected = () => {
     if (selectedItems.size === 0) return;
     
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${selectedItems.size} test case(s)?`
+    showConfirm(
+      'Delete Test Cases',
+      `Are you sure you want to delete ${selectedItems.size} test case(s)?`,
+      () => {
+        const count = selectedItems.size;
+        onDeleteTestCases(Array.from(selectedItems));
+        setSelectedItems(new Set());
+        setSelectAll(false);
+        // Show success message
+        showSuccess('Test Cases Deleted', `${count} test case(s) have been deleted successfully.`);
+      }
     );
-    
-    if (confirmed) {
-      onDeleteTestCases(Array.from(selectedItems));
-      setSelectedItems(new Set());
-      setSelectAll(false);
-    }
   };
 
   const handleCreateCategory = async () => {
@@ -114,9 +122,12 @@ const Sidebar = ({
       
       // Auto-select the new category
       onCategorySelect(data);
+      
+      // Show success message
+      showSuccess('Category Created', `Category "${newCategoryName}" has been created successfully.`);
     } catch (error) {
       console.error('Error creating category:', error);
-      alert('Error creating category: ' + error.message);
+      showError('Create Category Error', 'Error creating category: ' + error.message);
     } finally {
       setCreatingCategory(false);
     }
@@ -359,6 +370,19 @@ const Sidebar = ({
           )}
         </div>
       </div>
+
+      {/* Modal for error messages and confirmations */}
+      <Modal 
+        isOpen={modalState.isOpen}
+        onClose={hideModal}
+        onConfirm={modalState.onConfirm}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        showCancel={modalState.showCancel}
+      />
     </div>
   );
 };
