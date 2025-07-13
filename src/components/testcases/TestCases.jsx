@@ -241,13 +241,42 @@ const TestCases = () => {
 
     try {
       // Determine the category ID to use for test cases
-      let categoryId = selectedCategory;
+      let categoryId;
       
-      // Check if the AI generator specified a target category
-      if (generatedTests.length > 0 && generatedTests[0].targetCategoryId) {
-        categoryId = generatedTests[0].targetCategoryId;
-      } else if (selectedCategory === 'all' || !selectedCategory) {
-        // Create or find a default category for AI-generated tests
+      // Check if the AI generator specified a target category (priority #1)
+      if (generatedTests.length > 0 && generatedTests[0].hasOwnProperty('targetCategoryId')) {
+        const targetCategoryId = generatedTests[0].targetCategoryId;
+        
+        if (targetCategoryId) {
+          // User selected a specific category in AI dropdown
+          categoryId = targetCategoryId;
+          console.log('Using AI-selected category ID:', categoryId);
+        } else {
+          // User explicitly selected "AI Generated (Default)" in AI dropdown (empty string)
+          let defaultCategory = categories.find(c => c.name === 'AI Generated');
+          if (!defaultCategory) {
+            const { data: newCategory, error: categoryError } = await supabase
+              .from('test_categories')
+              .insert({
+                name: 'AI Generated',
+                user_id: user.id
+              })
+              .select()
+              .single();
+            
+            if (categoryError) throw categoryError;
+            defaultCategory = newCategory;
+            await fetchCategories(); // Refresh categories
+          }
+          categoryId = defaultCategory.id;
+          console.log('Using AI-selected default category ID:', categoryId);
+        }
+      } else if (selectedCategory !== 'all' && selectedCategory) {
+        // Use the currently selected category from the main view (priority #2)
+        categoryId = selectedCategory;
+        console.log('Using main view selected category ID:', categoryId);
+      } else {
+        // Create or find a default category for AI-generated tests (final fallback)
         let defaultCategory = categories.find(c => c.name === 'AI Generated');
         if (!defaultCategory) {
           const { data: newCategory, error: categoryError } = await supabase
@@ -264,6 +293,7 @@ const TestCases = () => {
           await fetchCategories(); // Refresh categories
         }
         categoryId = defaultCategory.id;
+        console.log('Using fallback AI Generated category ID:', categoryId);
       }
 
       // Create test cases in batch

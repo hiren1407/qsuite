@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { XMarkIcon, DocumentTextIcon, SparklesIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import { supabase } from "../../services/supabaseClient";
 
 const TestCaseForm = ({ testCase, onClose, onSubmit }) => {
@@ -15,7 +15,6 @@ const TestCaseForm = ({ testCase, onClose, onSubmit }) => {
   const [selectedFileIds, setSelectedFileIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [showAiSuggestions, setShowAiSuggestions] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -231,121 +230,6 @@ const TestCaseForm = ({ testCase, onClose, onSubmit }) => {
     }));
   };
 
-  const generateAiSuggestion = () => {
-    const testName = formData.name.toLowerCase();
-    let suggestion = '';
-
-    if (testName.includes('login') || testName.includes('auth')) {
-      suggestion = `Test Objectives:
-• Verify successful login with valid credentials
-• Test login failure with invalid credentials
-• Validate password field security (masked input)
-• Test "Remember Me" functionality
-• Verify account lockout after failed attempts
-• Test password reset flow
-
-Prerequisites:
-• Test user account exists in system
-• Valid test credentials available
-
-Test Steps:
-1. Navigate to login page
-2. Enter test credentials
-3. Click login button
-4. Verify successful authentication
-5. Check user session establishment
-6. Verify redirect to dashboard/home page
-
-Expected Results:
-• User successfully authenticated
-• Proper session management
-• Appropriate user permissions applied`;
-    } else if (testName.includes('register') || testName.includes('signup')) {
-      suggestion = `Test Objectives:
-• Verify successful user registration
-• Test form validation for required fields
-• Validate email format and uniqueness
-• Test password strength requirements
-• Verify email confirmation flow
-
-Prerequisites:
-• Registration page accessible
-• Email service configured
-• Unique test email addresses available
-
-Test Steps:
-1. Navigate to registration page
-2. Fill in user details
-3. Submit registration form
-4. Check email confirmation sent
-5. Click confirmation link
-6. Verify account activation
-
-Expected Results:
-• User account created successfully
-• Confirmation email received
-• Account activated after email verification`;
-    } else if (testName.includes('payment') || testName.includes('checkout')) {
-      suggestion = `Test Objectives:
-• Verify payment processing functionality
-• Test different payment methods
-• Validate payment security measures
-• Test error handling for failed payments
-• Verify order confirmation process
-
-Prerequisites:
-• Test payment gateway configured
-• Valid test payment credentials
-• Products added to cart
-• User logged in
-
-Test Steps:
-1. Proceed to checkout
-2. Enter payment information
-3. Select payment method
-4. Submit payment
-5. Verify payment processing
-6. Check order confirmation
-
-Expected Results:
-• Payment processed successfully
-• Order created in system
-• Confirmation email sent
-• Transaction recorded properly`;
-    } else {
-      suggestion = `Test Objectives:
-• Define what functionality is being tested
-• Specify acceptance criteria
-• Identify edge cases and error conditions
-
-Prerequisites:
-• List required test data
-• Specify system state requirements
-• Identify dependencies
-
-Test Steps:
-1. Define step-by-step testing procedure
-2. Include input data for each step
-3. Specify expected behavior
-4. Add verification points
-
-Expected Results:
-• Define expected outcomes
-• Specify success criteria
-• Include error handling expectations`;
-    }
-
-    setFormData(prev => ({ ...prev, description: suggestion }));
-    setShowAiSuggestions(false);
-  };
-
-  const aiSuggestions = [
-    { name: 'Login Test', description: 'Generate structure for login functionality testing' },
-    { name: 'Registration Test', description: 'Generate structure for user registration testing' },
-    { name: 'Payment Test', description: 'Generate structure for payment processing testing' },
-    { name: 'Generic Test', description: 'Generate basic test case structure' }
-  ];
-
   return (
     <div className="fixed inset-0 bg-gray-400 bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
@@ -452,40 +336,15 @@ Expected Results:
 
             {/* Description */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Description
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowAiSuggestions(!showAiSuggestions)}
-                  className="btn btn-xs btn-ghost text-primary"
-                >
-                  <SparklesIcon className="w-4 h-4 mr-1" />
-                  AI Assist
-                </button>
-              </div>
-              
-              {showAiSuggestions && (
-                <div className="mb-3 p-3 bg-base-50 rounded-lg border">
-                  <p className="text-sm text-gray-600 mb-2">Click to generate test case structure:</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={generateAiSuggestion}
-                      className="btn btn-xs btn-outline"
-                    >
-                      Generate for "{formData.name || 'this test'}"
-                    </button>
-                  </div>
-                </div>
-              )}
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Description
+              </label>
               
               <textarea
                 className="textarea textarea-bordered w-full h-24"
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Enter test case description or use AI Assist to generate structure..."
+                placeholder="Enter test case description..."
               />
             </div>
 

@@ -167,7 +167,7 @@ const Files = () => {
     
     try {
       const filesToDelete = appFiles.filter(file => selectedFiles.includes(file.id));
-      const filePaths = filesToDelete.map(file => file.file_path || file.path);
+      const filePaths = filesToDelete.map(file => file.filename || file.name);
       
       // Delete files from storage
       const { error: storageError } = await supabase.storage
@@ -269,9 +269,9 @@ const Files = () => {
           .rpc('insert_test_file', {
             user_id: user.id,
             name: selectedTestFile.name,
-            file_path: filePath,
             size: selectedTestFile.size,
             type: getFileType(selectedTestFile.name),
+            path: filePath,
             uploaded_date: new Date().toISOString()
           });
 
@@ -288,9 +288,9 @@ const Files = () => {
           .insert([{
             user_id: user.id,
             name: selectedTestFile.name,
-            file_path: filePath,
             size: selectedTestFile.size,
             type: getFileType(selectedTestFile.name),
+            path: filePath,
             uploaded_date: new Date().toISOString()
           }])
           .select();
@@ -321,7 +321,7 @@ const Files = () => {
     
     try {
       const filesToDelete = testFiles.filter(file => selectedTestFiles.includes(file.id));
-      const filePaths = filesToDelete.map(file => file.file_path || file.path);
+      const filePaths = filesToDelete.map(file => file.path);
       
       // Delete files from storage
       const { error: storageError } = await supabase.storage
@@ -368,11 +368,10 @@ const Files = () => {
 
   const handlePreviewFile = async (file, isTestFile = false) => {
     try {
-      // Handle both possible field names for file path
-      const filePath = file.file_path || file.path;
+      // Use the correct path for file identification
+      const filePath = isTestFile ? file.path : file.file_path;
       
       console.log('Attempting to open file:', {
-        fileName: file.filename || file.name,
         filePath: filePath,
         isTestFile: isTestFile,
         fileObject: file
