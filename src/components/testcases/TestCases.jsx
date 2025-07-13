@@ -228,6 +228,78 @@ const TestCases = () => {
     setEditingTestCase(null);
   };
 
+  // Handle AI-generated test cases
+  const handleAiTestsGenerated = async (generatedTests) => {
+    console.log('handleAiTestsGenerated called with:', generatedTests);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    console.log('User authenticated:', user.id);
+
+    try {
+      // Determine the category ID to use for test cases
+      let categoryId = selectedCategory;
+      
+      // Check if the AI generator specified a target category
+      if (generatedTests.length > 0 && generatedTests[0].targetCategoryId) {
+        categoryId = generatedTests[0].targetCategoryId;
+      } else if (selectedCategory === 'all' || !selectedCategory) {
+        // Create or find a default category for AI-generated tests
+        let defaultCategory = categories.find(c => c.name === 'AI Generated');
+        if (!defaultCategory) {
+          const { data: newCategory, error: categoryError } = await supabase
+            .from('test_categories')
+            .insert({
+              name: 'AI Generated',
+              user_id: user.id
+            })
+            .select()
+            .single();
+          
+          if (categoryError) throw categoryError;
+          defaultCategory = newCategory;
+          await fetchCategories(); // Refresh categories
+        }
+        categoryId = defaultCategory.id;
+      }
+
+      // Create test cases in batch
+      const testCasesToInsert = generatedTests.map(test => ({
+        name: test.title,
+        description: test.description,
+        category_id: categoryId,
+        user_id: user.id
+      }));
+
+      console.log('Test cases to insert:', testCasesToInsert);
+      console.log('Selected category:', selectedCategory, 'Using category ID:', categoryId);
+
+      const { data: insertedTestCases, error } = await supabase
+        .from('test_cases')
+        .insert(testCasesToInsert)
+        .select();
+
+      if (error) {
+        console.error('Database insertion error:', error);
+        throw error;
+      }
+
+      console.log('Successfully inserted test cases:', insertedTestCases);
+
+      // Refresh the data
+      await fetchTestCases();
+      await fetchCategories();
+
+      return insertedTestCases;
+    } catch (error) {
+      console.error('Error creating AI-generated test cases:', error);
+      throw error;
+    }
+  };
+
   const handleDeleteTestCase = async (testCaseId) => {
     const confirmed = window.confirm('Are you sure you want to delete this test case?');
     if (!confirmed) return;
@@ -574,7 +646,10 @@ const TestCases = () => {
                 
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => setShowAiGenerator(true)}
+                    onClick={() => {
+                      console.log('AI Generate button clicked, setting showAiGenerator to true');
+                      setShowAiGenerator(true);
+                    }}
                     className="btn btn-secondary"
                   >
                     <SparklesIcon className="w-5 h-5 mr-2" />
@@ -847,14 +922,19 @@ const TestCases = () => {
 
       {/* AI Test Generator Modal */}
       {showAiGenerator && (
-        <AiTestGenerator
-          categories={categories}
-          onTestCasesGenerated={() => {
-            fetchCategories();
-            fetchTestCases();
-          }}
-          onClose={() => setShowAiGenerator(false)}
-        />
+        <>
+          {console.log('Rendering AiTestGenerator modal, showAiGenerator:', showAiGenerator)}
+          <AiTestGenerator
+            onTestsGenerated={handleAiTestsGenerated}
+            currentFileId={null}
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onClose={() => {
+              console.log('AiTestGenerator onClose called');
+              setShowAiGenerator(false);
+            }}
+          />
+        </>
       )}
     </div>
   );
