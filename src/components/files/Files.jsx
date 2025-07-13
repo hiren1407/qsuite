@@ -511,7 +511,7 @@ const Files = () => {
             </div>
 
             {/* App Files Table - Scrollable */}
-            <div className="flex-1 overflow-y-auto overflow-x-auto">
+            <div className="flex-1 overflow-y-auto overflow-x-auto max-h-[calc(100vh-400px)]">
               {appFiles.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   <DocumentIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -639,7 +639,7 @@ const Files = () => {
             </div>
 
             {/* Test Files Table - Scrollable */}
-            <div className="flex-1 overflow-y-auto overflow-x-auto">
+            <div className="flex-1 overflow-y-auto overflow-x-auto max-h-[calc(100vh-400px)]">
               {testFiles.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   <DocumentIcon className="w-12 h-12 mx-auto mb-4 opacity-50" />

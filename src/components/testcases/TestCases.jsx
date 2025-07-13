@@ -10,10 +10,12 @@ import {
   FolderPlusIcon,
   CheckIcon,
   XMarkIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  SparklesIcon
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../services/supabaseClient";
 import TestCaseForm from "./TestCaseForm";
+import AiTestGenerator from "../ai/AiTestGenerator";
 
 const TestCases = () => {
   const location = useLocation();
@@ -33,6 +35,7 @@ const TestCases = () => {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [showAiGenerator, setShowAiGenerator] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -569,13 +572,22 @@ const TestCases = () => {
                   </label>
                 )}
                 
-                <button
-                  onClick={handleCreateTestCase}
-                  className="btn btn-primary"
-                >
-                  <PlusIcon className="w-5 h-5 mr-2" />
-                  Create Test Case
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setShowAiGenerator(true)}
+                    className="btn btn-secondary"
+                  >
+                    <SparklesIcon className="w-5 h-5 mr-2" />
+                    AI Generate
+                  </button>
+                  <button
+                    onClick={handleCreateTestCase}
+                    className="btn btn-primary"
+                  >
+                    <PlusIcon className="w-5 h-5 mr-2" />
+                    Create Test Case
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -697,10 +709,11 @@ const TestCases = () => {
               </div>
             ) : (
               // Table View
-              <div>
+              <div className="h-full flex flex-col">
                 {visibleTestCases.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="table table-zebra w-full">
+                  <div className="overflow-x-auto flex-1">
+                    <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
+                      <table className="table table-zebra w-full">
                       <thead>
                         <tr>
                           <th className="w-12">
@@ -794,6 +807,7 @@ const TestCases = () => {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-12">
@@ -828,6 +842,18 @@ const TestCases = () => {
           testCase={editingTestCase}
           onClose={handleTestCaseFormClose}
           onSubmit={handleTestCaseFormSubmit}
+        />
+      )}
+
+      {/* AI Test Generator Modal */}
+      {showAiGenerator && (
+        <AiTestGenerator
+          categories={categories}
+          onTestCasesGenerated={() => {
+            fetchCategories();
+            fetchTestCases();
+          }}
+          onClose={() => setShowAiGenerator(false)}
         />
       )}
     </div>

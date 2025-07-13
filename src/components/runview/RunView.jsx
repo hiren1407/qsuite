@@ -549,7 +549,8 @@ const RunView = () => {
                 <div>
                   {visibleTestCases.length > 0 ? (
                     <div className="overflow-x-auto">
-                      <table className="table table-zebra w-full">
+                      <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
+                        <table className="table table-zebra w-full">
                         <thead>
                           <tr>
                             <th className="w-12">
@@ -654,6 +655,7 @@ const RunView = () => {
                           })}
                         </tbody>
                       </table>
+                      </div>
                     </div>
                   ) : (
                     <div className="text-center py-12">
@@ -675,73 +677,97 @@ const RunView = () => {
           </div>
 
           {/* Right Side - iPhone Simulator */}
-          <div className="w-80 p-4 bg-gray-50 flex flex-col">
-            {/* iPhone Simulator Mockup */}
-            <div className="flex flex-col items-center">
-              <div className="text-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">iPhone Simulator</h3>
-                <p className="text-xs text-gray-600">Test results will appear here</p>
+          <div className="w-80 p-4 bg-gray-50">
+            {/* iPhone Simulator */}
+            <div className="bg-base-100 rounded-lg p-6 border border-base-300">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-6 h-6 bg-gradient-to-br from-gray-800 to-gray-900 rounded-md flex items-center justify-center">
+                  <div className="w-3 h-3 bg-white rounded-sm"></div>
+                </div>
+                <h3 className="text-lg font-semibold">Simulator</h3>
               </div>
               
               <div className="relative">
                 {/* iPhone Frame */}
-                <div className="w-56 h-[480px] bg-black rounded-[2.5rem] p-2 shadow-2xl">
-                  {/* Notch */}
-                  <div className="w-28 h-5 bg-black rounded-full absolute top-1 left-1/2 transform -translate-x-1/2 z-10"></div>
-                  
-                  {/* Screen */}
-                  <div className="w-full h-full bg-white rounded-[2rem] overflow-hidden relative">
-                    {/* Status Bar */}
-                    <div className="h-10 bg-white flex items-center justify-between px-4 pt-1">
-                      <span className="text-xs font-semibold">9:41</span>
-                      <div className="flex items-center space-x-1">
-                        <div className="w-4 h-2 border border-black rounded-sm">
-                          <div className="w-3 h-1 bg-green-500 rounded-sm"></div>
+                <div className="w-full max-w-[280px] mx-auto">
+                  <div className="relative bg-black rounded-[3rem] p-4 shadow-2xl">
+                    {/* Screen */}
+                    <div className="bg-white rounded-[2.5rem] overflow-hidden aspect-[9/19.5]">
+                      {/* Status Bar */}
+                      <div className="bg-gray-900 h-8 flex items-center justify-between px-6 text-white text-xs">
+                        <span>9:41</span>
+                        <div className="flex items-center space-x-1">
+                          <div className="w-4 h-2 border border-white rounded-sm">
+                            <div className="w-3 h-1 bg-white rounded-sm"></div>
+                          </div>
                         </div>
+                      </div>
+                      
+                      {/* App Content */}
+                      <div className="p-4 h-full bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
+                        <div className="text-center mb-4">
+                          <h4 className="text-lg font-bold text-gray-800">QSuite Mobile</h4>
+                          <p className="text-sm text-gray-600">Test Runner</p>
+                        </div>
+                        
+                        {selectedTestCase ? (
+                          <div className="flex-1 flex flex-col">
+                            <div className="bg-white rounded-lg p-3 mb-3 shadow-sm">
+                              <h5 className="font-medium text-sm text-gray-800 mb-1">
+                                {selectedTestCase.name}
+                              </h5>
+                              <p className="text-xs text-gray-600 line-clamp-2">
+                                {selectedTestCase.description}
+                              </p>
+                            </div>
+                            
+                            <div className="space-y-2 mb-4">
+                              {getTestRunsForTestCase(selectedTestCase.id).slice(0, 3).map((run, index) => (
+                                <div key={run.id} className="bg-white rounded-md p-2 shadow-sm">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-medium">
+                                      Run #{index + 1}
+                                    </span>
+                                    <span className={`text-xs px-2 py-1 rounded-full ${
+                                      run.status === 'passed' ? 'bg-green-100 text-green-800' :
+                                      run.status === 'failed' ? 'bg-red-100 text-red-800' :
+                                      'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                      {run.status}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            <button className="bg-blue-500 text-white rounded-lg p-3 text-sm font-medium">
+                              Run Test
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex-1 flex items-center justify-center">
+                            <div className="text-center">
+                              <div className="w-12 h-12 bg-gray-200 rounded-full mx-auto mb-2 flex items-center justify-center">
+                                <DocumentTextIcon className="w-6 h-6 text-gray-400" />
+                              </div>
+                              <p className="text-xs text-gray-500">Select a test case</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     
-                    {/* App Content */}
-                    <div className="flex-1 bg-gray-100 p-3">
-                      {runningTests.size > 0 ? (
-                        <div className="text-center mt-16">
-                          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3"></div>
-                          <p className="text-gray-600 text-sm">Running tests...</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {runningTests.size} test(s) in progress
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="text-center mt-16">
-                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <PlayIcon className="w-6 h-6 text-blue-600" />
-                          </div>
-                          <p className="text-gray-600 text-sm mb-1">Ready to run tests</p>
-                          <p className="text-xs text-gray-500">
-                            Select tests and click run
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    
                     {/* Home Indicator */}
-                    <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-black rounded-full"></div>
+                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-32 h-1 bg-white rounded-full"></div>
                   </div>
                 </div>
-                
-                {/* Device Label */}
-                <div className="mt-3 text-center">
-                  <p className="text-sm font-medium text-gray-700">iPhone 15 Pro</p>
-                  <p className="text-xs text-gray-500">iOS 17.0</p>
-                </div>
               </div>
-            </div>
-            
-            {/* Additional simulator controls or info can go here */}
-            <div className="mt-6 text-center">
-              <p className="text-xs text-gray-500">
-                Test execution results will be displayed in real-time
-              </p>
+              
+              <div className="mt-4 text-center">
+                <p className="text-xs text-gray-500">
+                  Mobile app simulation for selected test case
+                </p>
+              </div>
             </div>
           </div>
         </div>

@@ -430,7 +430,8 @@ const Queue = () => {
       <div className="flex-1 overflow-auto">
         {filteredRuns.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="table table-zebra w-full">
+            <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
+              <table className="table table-zebra w-full">
               <thead>
                 <tr>
                   <th>Status</th>
@@ -517,6 +518,7 @@ const Queue = () => {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         ) : (
           <div className="text-center py-12">
