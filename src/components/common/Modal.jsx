@@ -16,7 +16,9 @@ const Modal = ({
   type = 'info', // 'success', 'error', 'warning', 'confirm', 'info'
   confirmText = 'OK',
   cancelText = 'Cancel',
-  showCancel = false
+  showCancel = false,
+  customContent = false,
+  children
 }) => {
   if (!isOpen) return null;
 
@@ -83,33 +85,41 @@ const Modal = ({
 
         {/* Body */}
         <div className="p-6">
-          <div className="flex items-start space-x-4">
-            <div className="flex-shrink-0">
-              {getIcon()}
+          {customContent ? (
+            children
+          ) : (
+            <div className="flex items-start space-x-4">
+              <div className="flex-shrink-0">
+                {getIcon()}
+              </div>
+              <div className="flex-1">
+                <p className="text-base text-base-content">{message}</p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-base text-base-content">{message}</p>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-end space-x-3 p-4 border-t border-base-300">
-          {(showCancel || type === 'confirm') && (
-            <button
-              onClick={onClose}
-              className="btn btn-ghost"
-            >
-              {cancelText}
-            </button>
-          )}
-          <button
-            onClick={handleConfirm}
-            className={`btn ${getButtonClass()}`}
-          >
-            {confirmText}
-          </button>
-        </div>
+        {/* Footer - only show if not custom content or if showCancel/onConfirm exist */}
+        {(!customContent || showCancel || onConfirm) && (
+          <div className="flex justify-end space-x-3 p-4 border-t border-base-300">
+            {(showCancel || type === 'confirm') && (
+              <button
+                onClick={onClose}
+                className="btn btn-ghost"
+              >
+                {cancelText}
+              </button>
+            )}
+            {!customContent && (
+              <button
+                onClick={handleConfirm}
+                className={`btn ${getButtonClass()}`}
+              >
+                {confirmText}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

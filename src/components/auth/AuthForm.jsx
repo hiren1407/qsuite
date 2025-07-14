@@ -1,7 +1,7 @@
 // src/components/AuthForm.jsx
 import { useState, useEffect } from "react";
 import { supabase } from "../../services/supabaseClient";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { AtSymbolIcon, LockClosedIcon, QueueListIcon } from "@heroicons/react/24/outline";
 
 const AuthForm = ({ type }) => {
@@ -12,24 +12,35 @@ const AuthForm = ({ type }) => {
   const [name, setName] = useState("");
   const [resetEmail, setResetEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("error"); // "success" | "error"
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
 
-   useEffect(() => {
-  if (window.location.hash.includes('access_token')) {
-    // Remove hash from URL so this effect doesn't run again on remount
-    history.replaceState(null, '', window.location.pathname);
+  useEffect(() => {
+    // Check for success message from email confirmation
+    if (location.state?.message) {
+      setMessage(location.state.message);
+      setMessageType("success");
+      // Clear the state to prevent the message from showing again on refresh
+      navigate(location.pathname, { replace: true });
+    }
+    
+    if (window.location.hash.includes('access_token')) {
+      // Remove hash from URL so this effect doesn't run again on remount
+      history.replaceState(null, '', window.location.pathname);
 
-    // Redirect to reset-password page
-    navigate('/reset-password');
-  }
-}, [navigate]);
+      // Redirect to reset-password page
+      navigate('/reset-password');
+    }
+  }, [navigate, location]);
 
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
+    setMessageType("error");
 
     if (mode === "register") {
       if (!name.trim()) {
@@ -62,9 +73,11 @@ const AuthForm = ({ type }) => {
       
       if (data?.user && !data.session) {
         setMessage("Registration successful! Please check your email and click the verification link to complete your registration.");
+        setMessageType("success");
         setLoading(false);
       } else {
         setMessage("Registered successfully!");
+        setMessageType("success");
         setLoading(false);
         // If auto-confirmed (email confirmation disabled), redirect
         if (data.session) {
@@ -90,13 +103,16 @@ const AuthForm = ({ type }) => {
   const handleResetPassword = async () => {
     setLoading(true);
     setMessage("");
+    setMessageType("error");
     const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
       redirectTo: `${window.location.origin}/reset-password`
     });
     if (error) {
       setMessage(error.message);
+      setMessageType("error");
     } else {
       setMessage("Check your email for the reset link.");
+      setMessageType("success");
     }
     setLoading(false);
   };
@@ -221,6 +237,7 @@ const AuthForm = ({ type }) => {
               onClick={() => {
                 setMode("forgot");
                 setMessage("");
+                setMessageType("error");
               }}
             >
               Forgot Password?
@@ -253,6 +270,7 @@ const AuthForm = ({ type }) => {
                 setMode("login");
                 setResetEmail("");
                 setMessage("");
+                setMessageType("error");
               }}
             >
               Back to Login
@@ -277,7 +295,9 @@ const AuthForm = ({ type }) => {
 
         {/* Message */}
         {message && (
-          <p className="text-sm text-warning text-center mt-3">{message}</p>
+          <p className={`text-sm text-center mt-3 ${messageType === "success" ? "text-success" : "text-warning"}`}>
+            {message}
+          </p>
         )}
 
         {/* Bottom Links */}
@@ -290,6 +310,7 @@ const AuthForm = ({ type }) => {
               onClick={() => {
                 setMode("register");
                 setMessage("");
+                setMessageType("error");
               }}
             >
               Sign up
@@ -305,6 +326,7 @@ const AuthForm = ({ type }) => {
               onClick={() => {
                 setMode("login");
                 setMessage("");
+                setMessageType("error");
               }}
             >
               Log in

@@ -11,7 +11,9 @@ import {
   DocumentTextIcon,
   FolderIcon,
   TrashIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  PlusIcon,
+  ArrowUpTrayIcon
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../services/supabaseClient";
 import Sidebar from "./Sidebar";
@@ -31,6 +33,20 @@ const RunView = () => {
   const [selectAll, setSelectAll] = useState(false);
   const [searchText, setSearchText] = useState('');
 
+  // App file selection state
+  const [showAppFileSelector, setShowAppFileSelector] = useState(false);
+  const [appFiles, setAppFiles] = useState([]);
+  const [selectedAppFile, setSelectedAppFile] = useState(null);
+  const [showAppFileUpload, setShowAppFileUpload] = useState(false);
+  const [runMode, setRunMode] = useState('batch'); // 'batch' or 'single'
+  const [singleTestCaseId, setSingleTestCaseId] = useState(null);
+  
+  // App file upload state
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [appName, setAppName] = useState('');
+  const [version, setVersion] = useState('');
+  const [uploading, setUploading] = useState(false);
+
   // Modal hook for replacing alerts and confirms
   const { modalState, hideModal, showError, showSuccess } = useModal();
 
@@ -38,6 +54,7 @@ const RunView = () => {
     fetchCategories();
     fetchTestCases();
     fetchTestRuns();
+    fetchAppFiles();
   }, []);
 
   // Auto-update selectAll when filtered test cases change
@@ -122,6 +139,114 @@ const RunView = () => {
     }
   };
 
+  const fetchAppFiles = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('app_files')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('uploaded_date', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching app files:', error);
+        setAppFiles([]);
+        return;
+      }
+
+      setAppFiles(data || []);
+    } catch (error) {
+      console.error('Error fetching app files:', error);
+      setAppFiles([]);
+    }
+  };
+
+  const getFileType = (filename) => {
+    const extension = filename.split('.').pop().toLowerCase();
+    const typeMap = {
+      'apk': 'Android',
+      'ipa': 'iOS',
+      'exe': 'Windows',
+      'dmg': 'macOS',
+      'zip': 'Archive',
+      'rar': 'Archive'
+    };
+    return typeMap[extension] || 'Unknown';
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const handleUploadAppFile = async () => {
+    if (!selectedFile || !appName.trim() || !version.trim()) {
+      showError('Upload Error', 'Please select a file and provide app name and version.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Upload file to Supabase Storage
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      const filePath = `app-files/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('files')
+        .upload(filePath, selectedFile);
+
+      if (uploadError) throw uploadError;
+
+      // Save file metadata to database
+      const { error: dbError } = await supabase
+        .from('app_files')
+        .insert([{
+          user_id: user.id,
+          app_name: appName.trim(),
+          version: version.trim(),
+          os: getFileType(selectedFile.name),
+          filename: selectedFile.name,
+          size: selectedFile.size,
+          file_path: filePath,
+          uploaded_date: new Date().toISOString()
+        }]);
+
+      if (dbError) throw dbError;
+
+      // Reset form and refresh list
+      setSelectedFile(null);
+      setAppName('');
+      setVersion('');
+      setShowAppFileUpload(false);
+      document.getElementById('app-file-input').value = '';
+      await fetchAppFiles();
+      
+      showSuccess('App File Uploaded', 'App file has been uploaded successfully.');
+      
+    } catch (error) {
+      console.error('Error uploading app file:', error);
+      showError('Upload Error', 'Error uploading app file: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleCategorySelect = (category) => {
     setSelectedCategory(category);
     setSelectedTestCase(null);
@@ -173,6 +298,52 @@ const RunView = () => {
   const handleRunSelectedTestCases = async () => {
     if (selectedTestCases.length === 0) return;
     
+    // Show app file selector modal for batch operation
+    setRunMode('batch');
+    setSingleTestCaseId(null);
+    
+    // Fetch app files before showing the modal
+    await fetchAppFiles();
+    setShowAppFileSelector(true);
+  };
+
+  const handleRunSingleTest = async (testCaseId) => {
+    // Show app file selector modal for single test
+    setRunMode('single');
+    setSingleTestCaseId(testCaseId);
+    
+    // Fetch app files before showing the modal
+    await fetchAppFiles();
+    setShowAppFileSelector(true);
+  };
+
+  const handleRunTestsWithAppFile = async () => {
+    if (!selectedAppFile) {
+      showError('App File Required', 'Please select an app file to run the tests.');
+      return;
+    }
+    
+    // Close the app file selector modal
+    setShowAppFileSelector(false);
+    
+    if (runMode === 'single') {
+      // Run single test case
+      try {
+        const result = await handleRunTest(singleTestCaseId, false);
+        if (result.success) {
+          showSuccess('Test Completed', 'Test case executed successfully.');
+        } else {
+          showError('Test Failed', 'Test case execution failed.');
+        }
+      } catch (error) {
+        showError('Test Error', 'Error running test case: ' + error.message);
+      }
+      setSingleTestCaseId(null);
+      setSelectedAppFile(null);
+      return;
+    }
+    
+    // Run batch tests
     const totalTests = selectedTestCases.length;
     let passedTests = 0;
     let failedTests = 0;
@@ -211,6 +382,7 @@ const RunView = () => {
 
     setSelectedTestCases([]);
     setSelectAll(false);
+    setSelectedAppFile(null);
   };
 
   const handleRunTest = async (testCaseId, isBatchOperation = false) => {
@@ -540,7 +712,7 @@ const RunView = () => {
                     </div>
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => handleRunTest(selectedTestCase.id)}
+                        onClick={() => handleRunSingleTest(selectedTestCase.id)}
                         disabled={runningTests.has(selectedTestCase.id)}
                         className="btn btn-success btn-sm"
                       >
@@ -676,7 +848,7 @@ const RunView = () => {
                                 <td onClick={(e) => e.stopPropagation()}>
                                   <div className="flex items-center space-x-1">
                                     <button
-                                      onClick={() => handleRunTest(testCase.id)}
+                                      onClick={() => handleRunSingleTest(testCase.id)}
                                       disabled={isRunning}
                                       className="btn btn-ghost btn-xs text-green-600 hover:bg-green-50"
                                       title="Run test"
@@ -825,6 +997,193 @@ const RunView = () => {
           </div>
         </div>
       </div>
+
+      {/* App File Selector Modal */}
+      <Modal 
+        isOpen={showAppFileSelector}
+        onClose={() => {
+          setShowAppFileSelector(false);
+          setSelectedAppFile(null);
+          setShowAppFileUpload(false);
+          setSingleTestCaseId(null);
+          setRunMode('batch');
+        }}
+        title="Select App File for Testing"
+        type="info"
+        showCancel={true}
+        cancelText="Cancel"
+        customContent={true}
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600 text-sm">
+            {runMode === 'batch' 
+              ? `Select an app file to run the selected test cases (${selectedTestCases.length} test${selectedTestCases.length !== 1 ? 's' : ''}).`
+              : 'Select an app file to run this test case.'
+            }
+          </p>
+          
+          {appFiles.length === 0 ? (
+            <div className="text-center py-8">
+              <DocumentTextIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 mb-4">No app files found</p>
+              <button
+                onClick={() => setShowAppFileUpload(true)}
+                className="btn btn-primary btn-sm"
+              >
+                <PlusIcon className="w-4 h-4 mr-2" />
+                Upload App File
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-medium text-gray-900">Available App Files</h4>
+                <button
+                  onClick={() => setShowAppFileUpload(true)}
+                  className="btn btn-outline btn-sm"
+                >
+                  <PlusIcon className="w-4 h-4 mr-2" />
+                  Add New
+                </button>
+              </div>
+              
+              <div className="max-h-60 overflow-y-auto space-y-2">
+                {appFiles.map((file) => (
+                  <div
+                    key={file.id}
+                    className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                      selectedAppFile?.id === file.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                    onClick={() => setSelectedAppFile(file)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <DocumentTextIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-gray-900 truncate">{file.app_name}</p>
+                            <p className="text-sm text-gray-500">
+                              v{file.version} • {file.os} • {formatFileSize(file.size)}
+                            </p>
+                            <p className="text-xs text-gray-400 truncate">{file.filename}</p>
+                          </div>
+                        </div>
+                      </div>
+                      {selectedAppFile?.id === file.id && (
+                        <CheckCircleIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-4 flex justify-end space-x-2">
+                <button
+                  onClick={handleRunTestsWithAppFile}
+                  disabled={!selectedAppFile}
+                  className="btn btn-primary"
+                >
+                  <PlayIcon className="w-4 h-4 mr-2" />
+                  {runMode === 'batch' ? 'Run Tests' : 'Run Test'}
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* App File Upload Form */}
+          {showAppFileUpload && (
+            <div className="border-t pt-4 mt-4">
+              <h4 className="font-medium text-gray-900 mb-4">Upload New App File</h4>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select File
+                  </label>
+                  <input
+                    id="app-file-input"
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileSelect}
+                    accept=".apk,.ipa,.exe,.dmg,.zip,.rar"
+                  />
+                  <label
+                    htmlFor="app-file-input"
+                    className="btn btn-outline btn-sm cursor-pointer w-full"
+                  >
+                    <ArrowUpTrayIcon className="w-4 h-4 mr-2" />
+                    {selectedFile ? selectedFile.name : 'Choose File'}
+                  </label>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      App Name *
+                    </label>
+                    <input
+                      type="text"
+                      className="input input-bordered w-full input-sm"
+                      placeholder="Enter app name"
+                      value={appName}
+                      onChange={(e) => setAppName(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Version *
+                    </label>
+                    <input
+                      type="text"
+                      className="input input-bordered w-full input-sm"
+                      placeholder="e.g., 1.0.0"
+                      value={version}
+                      onChange={(e) => setVersion(e.target.value)}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => {
+                      setShowAppFileUpload(false);
+                      setSelectedFile(null);
+                      setAppName('');
+                      setVersion('');
+                      if (document.getElementById('app-file-input')) {
+                        document.getElementById('app-file-input').value = '';
+                      }
+                    }}
+                    className="btn btn-ghost btn-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUploadAppFile}
+                    disabled={!selectedFile || !appName.trim() || !version.trim() || uploading}
+                    className="btn btn-primary btn-sm"
+                  >
+                    {uploading ? (
+                      <>
+                        <span className="loading loading-spinner loading-xs mr-2"></span>
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <ArrowUpTrayIcon className="w-4 h-4 mr-2" />
+                        Upload
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
 
       {/* Modal for error, success messages and confirmations */}
       <Modal 

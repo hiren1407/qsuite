@@ -12,15 +12,13 @@ const EmailConfirmed = () => {
   useEffect(() => {
     const handleEmailConfirmation = async () => {
       try {
-        // Get the hash parameters immediately and clear them to prevent auto-processing
+
+        // Get the full hash for debugging
         const fullHash = window.location.hash;
         console.log('Full hash:', fullHash);
         
-        // Clear the hash immediately to prevent Supabase from auto-processing
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
         // Check if user came from email confirmation link
-        const hashParams = new URLSearchParams(fullHash.substring(1));
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
         const type = hashParams.get('type');
@@ -51,14 +49,9 @@ const EmailConfirmed = () => {
           console.log('Processing email verification');
           
           try {
-            // First, ensure we're signed out
-            await supabase.auth.signOut();
-            
-            // Verify the email by temporarily setting the session, then immediately signing out
+            // Verify the email by exchanging the code for session (but we'll sign out immediately)
             if (accessToken && refreshToken) {
               console.log('Verifying email with tokens');
-              
-              // Set session temporarily to verify email
               const { data, error } = await supabase.auth.setSession({
                 access_token: accessToken,
                 refresh_token: refreshToken
@@ -73,13 +66,16 @@ const EmailConfirmed = () => {
               } 
               
               if (data.session && data.user) {
-                console.log('Email verification successful, immediately signing out');
+                console.log('Email verification successful, signing out to redirect to login');
                 
-                // Email is now verified in Supabase, but sign out immediately
+                // Email is now verified, sign out the user and redirect to login
                 await supabase.auth.signOut();
                 
                 setConfirmed(true);
                 setLoading(false);
+                
+                // Clear the hash from URL
+                window.history.replaceState({}, document.title, window.location.pathname);
                 
                 // Auto-redirect to login after 3 seconds
                 setTimeout(() => {
@@ -102,7 +98,7 @@ const EmailConfirmed = () => {
             setError('Failed to verify email: ' + sessionError.message);
             setLoading(false);
           }
-        } else if (fullHash) {
+        } else if (window.location.hash) {
           // There's a hash but it's not related to signup
           console.log('Non-signup hash detected');
           setError('Invalid confirmation link format.');

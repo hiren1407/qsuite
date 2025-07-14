@@ -62,6 +62,13 @@ const App = () => {
             return;
           }
           
+          // If this is email confirmation on the email-confirmed route, don't auto-login
+          if (type === 'signup' && currentPath === '/email-confirmed') {
+            console.log('Email confirmation on email-confirmed route detected, preventing auto-login');
+            // The EmailConfirmed component will handle this
+            return;
+          }
+          
           if (type === 'signup') {
             // This is email confirmation, let the route handle the redirect
             console.log('Email confirmation detected, updating session');
