@@ -173,18 +173,47 @@ const RunView = () => {
   const handleRunSelectedTestCases = async () => {
     if (selectedTestCases.length === 0) return;
     
-    // Run all selected test cases directly without confirmation
-    for (const testCaseId of selectedTestCases) {
-      await handleRunTest(testCaseId);
-      // Add a small delay between test executions
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    const totalTests = selectedTestCases.length;
+    let passedTests = 0;
+    let failedTests = 0;
+    
+    // Run all selected test cases as a batch operation
+    const testPromises = selectedTestCases.map(async (testCaseId, index) => {
+      // Add a staggered delay to avoid overwhelming the system
+      await new Promise(resolve => setTimeout(resolve, index * 500));
+      
+      try {
+        const result = await handleRunTest(testCaseId, true); // true indicates batch operation
+        if (result.success) {
+          passedTests++;
+        } else {
+          failedTests++;
+        }
+        return result;
+      } catch (error) {
+        failedTests++;
+        return { success: false, error: error.message };
+      }
+    });
+
+    // Wait for all tests to complete
+    await Promise.all(testPromises);
+
+    // Show summary modal after all tests complete
+    const message = `Completed ${totalTests} test(s): ${passedTests} passed, ${failedTests} failed.`;
+    if (failedTests === 0) {
+      showSuccess('Batch Test Completed', message);
+    } else if (passedTests === 0) {
+      showError('Batch Test Failed', message);
+    } else {
+      showSuccess('Batch Test Completed', message);
     }
 
     setSelectedTestCases([]);
     setSelectAll(false);
   };
 
-  const handleRunTest = async (testCaseId) => {
+  const handleRunTest = async (testCaseId, isBatchOperation = false) => {
     setRunningTests(prev => new Set([...prev, testCaseId]));
     
     try {
@@ -213,58 +242,80 @@ const RunView = () => {
 
       console.log(`Running test case ${testCaseId}...`);
       
-      // Simulate test execution (replace with actual test execution logic)
-      setTimeout(async () => {
-        const success = Math.random() > 0.3; // 70% success rate for demo
-        const endTime = new Date().toISOString();
-        const duration = Math.floor((new Date(endTime) - new Date(startTime)) / 1000);
-        
-        // Update test run with results
-        const { error: updateError } = await supabase
-          .from('test_runs')
-          .update({
-            status: success ? 'passed' : 'failed',
-            completed_at: endTime,
-            duration: duration,
-            result: {
-              success: success,
-              message: success 
-                ? 'All tests completed successfully.' 
-                : 'Some tests failed. Check the logs for details.'
+      // Return a promise that resolves with the test result
+      return new Promise((resolve, reject) => {
+        // Simulate test execution (replace with actual test execution logic)
+        setTimeout(async () => {
+          try {
+            const success = Math.random() > 0.3; // 70% success rate for demo
+            const endTime = new Date().toISOString();
+            const duration = Math.floor((new Date(endTime) - new Date(startTime)) / 1000);
+            
+            // Update test run with results
+            const { error: updateError } = await supabase
+              .from('test_runs')
+              .update({
+                status: success ? 'passed' : 'failed',
+                completed_at: endTime,
+                duration: duration,
+                result: {
+                  success: success,
+                  message: success 
+                    ? 'All tests completed successfully.' 
+                    : 'Some tests failed. Check the logs for details.'
+                }
+              })
+              .eq('id', testRun.id);
+
+            if (updateError) {
+              console.error('Error updating test run:', updateError);
             }
-          })
-          .eq('id', testRun.id);
 
-        if (updateError) {
-          console.error('Error updating test run:', updateError);
-        }
+            console.log(`Test ${testCaseId} ${success ? 'passed' : 'failed'}`);
+            
+            setRunningTests(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(testCaseId);
+              return newSet;
+            });
 
-        console.log(`Test ${testCaseId} ${success ? 'passed' : 'failed'}`);
-        
-        setRunningTests(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(testCaseId);
-          return newSet;
-        });
+            // Only show individual modals for single test runs, not batch operations
+            if (!isBatchOperation) {
+              if (success) {
+                showSuccess('Test Passed', 'All tests completed successfully.');
+              } else {
+                showError('Test Failed', 'Some tests failed. Check the logs for details.');
+              }
+            }
 
-        // Show a notification or result
-        if (success) {
-          showSuccess('Test Passed', 'All tests completed successfully.');
-        } else {
-          showError('Test Failed', 'Some tests failed. Check the logs for details.');
-        }
-        // Refresh data to show updated test runs
-        fetchTestRuns();
-      }, 3000 + Math.random() * 2000); // Random delay between 3-5 seconds
+            // Refresh data to show updated test runs
+            fetchTestRuns();
+            
+            // Resolve with the test result
+            resolve({ success, testCaseId });
+          } catch (error) {
+            console.error('Error updating test run:', error);
+            setRunningTests(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(testCaseId);
+              return newSet;
+            });
+            reject(error);
+          }
+        }, 3000 + Math.random() * 2000); // Random delay between 3-5 seconds
+      });
 
     } catch (error) {
       console.error('Error running test:', error);
-      showError('Test Error', 'Error running test: ' + error.message);
+      if (!isBatchOperation) {
+        showError('Test Error', 'Error running test: ' + error.message);
+      }
       setRunningTests(prev => {
         const newSet = new Set(prev);
         newSet.delete(testCaseId);
         return newSet;
       });
+      throw error;
     }
   };
 
